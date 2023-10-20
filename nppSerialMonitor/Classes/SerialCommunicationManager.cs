@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO.Ports;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -9,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace nppSerialMonitor.Classes
 {
-    internal class SerialCommunicationManager
+    public class SerialCommunicationManager
     {
         public event UpdateMessageEventHandler UpdateMessage;
 
@@ -18,560 +19,463 @@ namespace nppSerialMonitor.Classes
 
         public delegate void ConnectionStateChangedEventHandler(object sender, SerialCommunicationManagerConnectionEventArgs e);
 
-        private SerialPort CommPort { get; set; }
-        private int BaudRate { get; set; }
-        private int Parity { get; set; }
-        private int DataBits { get; set; }
-        private StopBits StopBits { get; set; }
+        public SerialPort CommPort { get; set; }
+        public int BaudRate { get; set; }
+        public Parity Parity { get; set; }
+        public int DataBits { get; set; }
+        public StopBits StopBits { get; set; }
 
-    private string PortName { get; set; }
+        public string PortName { get; set; }
 
-    private TransmissionTypes _txType;
-    public TransmissionTypes TxTransmissionType
-    {
-        get
-        {
-            return _txType;
-        }
-        set
-        {
-            _txType = value;
-        }
-    }
+        public TransmissionTypes TxTransmissionType { get; set; }
+        public TransmissionTypes RxTransmissionType { get; set; }
+        public string Message { get; set; }
+        public MessageTypes MessageType { get; set; }
+        public NewLineTypes NewLineType { get; set; }
 
-    private TransmissionTypes _rxType;
-    public TransmissionTypes RxTransmissionType
-    {
-        get
+        public string NewlineString
         {
-            return _rxType;
-        }
-        set
-        {
-            _rxType = value;
-        }
-    }
-
-    private string _msg;
-    public string Message
-    {
-        get
-        {
-            return _msg;
-        }
-        set
-        {
-            _msg = value;
-        }
-    }
-
-    private MessageTypes _type;
-    public MessageTypes Type
-    {
-        get
-        {
-            return _type;
-        }
-        set
-        {
-            _type = value;
-        }
-    }
-
-    private NewLineTypes _serialNewline;
-    public NewLineTypes Newline
-    {
-        get
-        {
-            return _serialNewline;
-        }
-        set
-        {
-            _serialNewline = value;
-        }
-    }
-
-    public string NewlineString
-    {
-        get
-        {
-            switch (_serialNewline)
+            get
             {
-                case NewLineTypes.Cr:
-                    {
-                        return Conversions.ToString('\r');
-                    }
-                case NewLineTypes.Lf:
-                    {
-                        return Conversions.ToString('\n');
-                    }
-
-                default:
-                    {
-                        return Conversions.ToString('\r') + '\n';
-                    }
+                return NewLineType.ToString();
             }
         }
-    }
 
-    public bool IsOpen
-    {
-        get
+        public bool IsOpen
         {
-            if (_comPort is null)
+            get
+            {
+                if (this.CommPort is null)
+                    return false;
+                return this.CommPort.IsOpen;
+            }
+        }
+
+        public SerialCommunicationManager(int prmBaud, Parity prmParity, StopBits prmStopBits, int prmDataBits, string prmPortName, NewLineTypes prmNewLine)
+        {
+            try
+            {
+                this.BaudRate = prmBaud;
+                this.Parity = prmParity;
+                this.StopBits = prmStopBits;
+                this.DataBits = prmDataBits;
+                this.PortName = prmPortName;
+                this.NewLineType = prmNewLine;
+                this.CommPort = new SerialPort();
+                this.CommPort.DataReceived += ComPort_DataReceived;
+                this.ConnectionStateChanged?.Invoke(this, new SerialCommunicationManagerConnectionEventArgs(ConnectionStates.Closed));
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine(ex);
+            }
+        }
+
+        public SerialCommunicationManager()
+        {
+            try
+            {
+                this.BaudRate = 9600;
+                this.Parity = System.IO.Ports.Parity.None;
+                this.StopBits = System.IO.Ports.StopBits.One;
+                this.DataBits = 8;
+                this.NewLineType = NewLineTypes.Lf;
+
+                if (SerialPort.GetPortNames().Length > 0)
+                    this.PortName = SerialPort.GetPortNames()[0];
+
+                this.CommPort = new SerialPort();
+
+                this.CommPort.DataReceived += ComPort_DataReceived;
+                this.ConnectionStateChanged?.Invoke(this, new SerialCommunicationManagerConnectionEventArgs(ConnectionStates.Closed));
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine(ex);
+            }
+        }
+
+        public void WriteData(string msg)
+        {
+            try
+            {
+                if (!(this.CommPort.IsOpen == true))
+                {
+                    this.CommPort.Open();
+                    this.ConnectionStateChanged?.Invoke(this, new SerialCommunicationManagerConnectionEventArgs(ConnectionStates.Open));
+                }
+                switch (this.TxTransmissionType)
+                {
+                    case TransmissionTypes.Text:
+                        {
+                            this.CommPort.WriteLine(msg);
+                            this.MessageType = MessageTypes.Outgoing;
+                            this.Message = msg;
+                            break;
+                        }
+                    case TransmissionTypes.Hex:
+                        {
+                            try
+                            {
+                                byte[] newMsg = HexToByte(msg);
+                                this.CommPort.Write(newMsg, 0, newMsg.Length);
+                                this.MessageType = MessageTypes.Outgoing;
+                                this.Message = ByteToHex(newMsg);
+                            }
+                            catch (FormatException ex)
+                            {
+                                this.MessageType = MessageTypes.Error;
+                                this.Message = ex.Message;
+                            }
+
+                            break;
+                        }
+
+                    default:
+                        {
+                            this.CommPort.Write(msg);
+                            this.MessageType = MessageTypes.Outgoing;
+                            this.Message = msg;
+                            break;
+                        }
+                }
+
+                this.UpdateMessage?.Invoke(this, new SerialCommunicationManagerMessageEventArgs(this.Message, this.MessageType));
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine(ex);
+            }
+        }
+
+        public void WriteBytes(byte[] msg)
+        {
+            try
+            {
+                if (!this.CommPort.IsOpen)
+                {
+                    this.CommPort.Open();
+                    this.ConnectionStateChanged?.Invoke(this, new SerialCommunicationManagerConnectionEventArgs(ConnectionStates.Open));
+                }
+
+                this.CommPort.Write(msg, 0, msg.Length);
+                this.MessageType = MessageTypes.Outgoing;
+                this.Message = ByteToHex(msg);
+
+                UpdateMessage?.Invoke(this, new SerialCommunicationManagerMessageEventArgs(this.Message, this.MessageType, TransmissionTypes.Hex));
+            }
+            catch (FormatException ex)
+            {
+                Debug.WriteLine(ex);
+            }
+        }
+
+        private byte[] HexToByte(string msg)
+        {
+            try
+            {
+                if (!Regex.IsMatch(msg, @"\A\b[0-9a-fA-F]+\b\Z", RegexOptions.IgnoreCase))
+                    msg = StrToHex(msg);
+                if (msg.Length % 2 == 0)
+                {
+                    this.Message = msg;
+                    this.Message = msg.Replace(" ", "");
+                    byte[] comBuffer = new byte[((int)Math.Round(this.Message.Length / 2d))];
+                    for (int i = 0; i <= this.Message.Length - 1; i += 2)
+                        comBuffer[(int)Math.Round(i / 2d)] = Convert.ToByte(this.Message.Substring(i, 2), 16);
+                    return comBuffer;
+                }
+                else
+                {
+                    this.Message = "Invalid format";
+                    this.MessageType = MessageTypes.Error;
+                    return null;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine(ex);
+            }
+            return null;
+        }
+
+        private StringBuilder _hexBuilder;
+        private string ByteToHex(IEnumerable<byte> comByte)
+        {
+            try
+            {
+                if (_hexBuilder is null)
+                    _hexBuilder = new StringBuilder();
+                _hexBuilder.Clear();
+                foreach (byte data in comByte)
+                    _hexBuilder.Append(Convert.ToString(data, 16).PadLeft(2, '0').PadRight(3, ' '));
+                return _hexBuilder.ToString().ToUpper();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine(ex);
+            }
+            return null;
+        }
+
+        private string StrToHex(string data)
+        {
+            byte[] byteArray = Encoding.UTF8.GetBytes(data);
+
+            // Convert the byte array to hexadecimal string
+            string hexString = BitConverter.ToString(byteArray).Replace("-", "");
+
+            return hexString;
+        }
+
+        public bool OpenPort()
+        {
+            try
+            {
+                if (this.CommPort.IsOpen == true)
+                {
+                    this.CommPort.Close();
+                    ConnectionStateChanged?.Invoke(this, new SerialCommunicationManagerConnectionEventArgs(ConnectionStates.Closed));
+                }
+                this.CommPort.BaudRate = this.BaudRate;
+                this.CommPort.DataBits = this.DataBits;
+                this.CommPort.StopBits = this.StopBits;
+                this.CommPort.Parity = this.Parity;
+                this.CommPort.PortName = this.PortName;
+                this.CommPort.Encoding = Encoding.UTF8;
+                this.CommPort.NewLine = NewlineString;
+
+                this.CommPort.WriteTimeout = 500;
+                this.CommPort.ReadTimeout = 500;
+
+                this.CommPort.Open();
+                ConnectionStateChanged?.Invoke(this, new SerialCommunicationManagerConnectionEventArgs(ConnectionStates.Open));
+                this.CommPort.DiscardOutBuffer();
+                this.CommPort.DiscardInBuffer();
+
+                this.MessageType = MessageTypes.Status;
+                this.Message = $"Port opened at {DateTime.Now:dd-MM-yyyy hh:mm:ss.f}";
+
+                UpdateMessage?.Invoke(this, new SerialCommunicationManagerMessageEventArgs(this.Message, this.MessageType));
+                return true;
+            }
+            catch (Exception ex)
+            {
+                UpdateMessage?.Invoke(this, new SerialCommunicationManagerMessageEventArgs(ex.Message, MessageTypes.Error));
+                ConnectionStateChanged?.Invoke(this, new SerialCommunicationManagerConnectionEventArgs(ConnectionStates.Closed));
                 return false;
-            return _comPort.IsOpen;
-        }
-    }
-
-    public SerialCommunicationManager(int prmBaud, Parity prmParity, StopBits prmStopBits, int prmDataBits, string prmPortName, NewLineTypes prmNewLine)
-    {
-        try
-        {
-            _baudRate = prmBaud;
-            _parity = prmParity;
-            _stopBits = prmStopBits;
-            _dataBits = prmDataBits;
-            _portName = prmPortName;
-            _serialNewline = prmNewLine;
-            _comPort = new SerialPort();
-            this._comPort.DataReceived += comPort_DataReceived;
-            ConnectionStateChanged?.Invoke(this, new SerialCommunicationManagerConnectionEventArgs(ConnectionStates.Closed));
-        }
-        catch (Exception ex)
-        {
-            ExceptionMessageBox.ShowDetailedException(ex);
-        }
-    }
-
-    public SerialCommunicationManager()
-    {
-        try
-        {
-            _baudRate = 9600;
-            _parity = System.IO.Ports.Parity.None;
-            _stopBits = System.IO.Ports.StopBits.One;
-            _dataBits = 8;
-            _serialNewline = NewLineTypes.Lf;
-
-            if (SerialPort.GetPortNames().Count > 0)
-                _portName = SerialPort.GetPortNames()(0);
-            _comPort = new SerialPort();
-
-            this._comPort.DataReceived += comPort_DataReceived;
-            ConnectionStateChanged?.Invoke(this, new SerialCommunicationManagerConnectionEventArgs(ConnectionStates.Closed));
-        }
-        catch (Exception ex)
-        {
-            ExceptionMessageBox.ShowDetailedException(ex);
-        }
-    }
-
-    public void WriteData(string msg)
-    {
-        try
-        {
-            if (!(_comPort.IsOpen == true))
-            {
-                _comPort.Open();
-                ConnectionStateChanged?.Invoke(this, new SerialCommunicationManagerConnectionEventArgs(ConnectionStates.Open));
-            }
-            switch (TxTransmissionType)
-            {
-                case TransmissionTypes.Text:
-                    {
-                        _comPort.WriteLine(msg);
-                        _type = MessageTypes.Outgoing;
-                        _msg = msg;
-                        break;
-                    }
-                case TransmissionTypes.Hex:
-                    {
-                        try
-                        {
-                            byte[] newMsg = HexToByte(msg);
-                            _comPort.Write(newMsg, 0, newMsg.Length);
-                            _type = MessageTypes.Outgoing;
-                            _msg = ByteToHex(newMsg);
-                        }
-                        catch (FormatException ex)
-                        {
-                            _type = MessageTypes.Error;
-                            _msg = ex.Message;
-                        }
-
-                        break;
-                    }
-
-                default:
-                    {
-                        _comPort.Write(msg);
-                        _type = MessageTypes.Outgoing;
-                        _msg = msg;
-                        break;
-                    }
-            }
-
-            UpdateMessage?.Invoke(this, new SerialCommunicationManagerMessageEventArgs(_msg, _type));
-        }
-        catch (Exception ex)
-        {
-            ExceptionMessageBox.ShowDetailedException(ex);
-        }
-    }
-
-    public void WriteBytes(byte[] msg)
-    {
-        try
-        {
-            if (!_comPort.IsOpen)
-            {
-                _comPort.Open();
-                ConnectionStateChanged?.Invoke(this, new SerialCommunicationManagerConnectionEventArgs(ConnectionStates.Open));
-            }
-
-            _comPort.Write(msg, 0, msg.Length);
-            _type = MessageTypes.Outgoing;
-            _msg = ByteToHex(msg);
-
-            UpdateMessage?.Invoke(this, new SerialCommunicationManagerMessageEventArgs(_msg, _type, TransmissionTypes.Hex));
-        }
-        catch (FormatException ex)
-        {
-            ExceptionMessageBox.ShowDetailedException(ex);
-        }
-    }
-
-    private byte[] HexToByte(string msg)
-    {
-        try
-        {
-            if (!Regex.IsMatch(msg, @"\A\b[0-9a-fA-F]+\b\Z", RegexOptions.IgnoreCase))
-                msg = StrToHex(msg);
-            if (msg.Length % 2 == 0)
-            {
-                _msg = msg;
-                _msg = msg.Replace(" ", "");
-                byte[] comBuffer = new byte[((int)Math.Round(_msg.Length / 2d))];
-                for (int i = 0, loopTo = _msg.Length - 1; i <= loopTo; i += 2)
-                    comBuffer[(int)Math.Round(i / 2d)] = Convert.ToByte(_msg.Substring(i, 2), 16);
-                return comBuffer;
-            }
-            else
-            {
-                _msg = "Invalid format";
-                _type = MessageTypes.Error;
-                return null;
             }
         }
-        catch (Exception ex)
-        {
-            ExceptionMessageBox.ShowDetailedException(ex);
-        }
-        return null;
-    }
 
-    private StringBuilder _hexBuilder;
-    private string ByteToHex(IEnumerable<byte> comByte)
-    {
-        try
+        public void ClosePort()
         {
-            if (_hexBuilder is null)
-                _hexBuilder = new StringBuilder();
-            _hexBuilder.Clear();
-            foreach (byte data in comByte)
-                _hexBuilder.Append(Convert.ToString(data, 16).PadLeft(2, '0').PadRight(3, ' '));
-            return _hexBuilder.ToString().ToUpper();
-        }
-        catch (Exception ex)
-        {
-            ExceptionMessageBox.ShowDetailedException(ex);
-        }
-        return null;
-    }
-
-    private string StrToHex(string data)
-    {
-        return data.Aggregate("", (current, c) => current + Conversion.Hex(Strings.Asc(c)));
-    }
-
-    public bool OpenPort()
-    {
-        try
-        {
-            if (_comPort.IsOpen == true)
+            if (this.CommPort.IsOpen)
             {
-                _comPort.Close();
+                this.Message = $"Port closed at {DateTime.Now:dd-MM-yyyy hh:mm:ss.f}";
+                this.MessageType = MessageTypes.Status;
+                this.CommPort.Close();
+                UpdateMessage?.Invoke(this, new SerialCommunicationManagerMessageEventArgs(this.Message, this.MessageType));
                 ConnectionStateChanged?.Invoke(this, new SerialCommunicationManagerConnectionEventArgs(ConnectionStates.Closed));
             }
-            _comPort.BaudRate = _baudRate;
-            _comPort.DataBits = _dataBits;
-            _comPort.StopBits = _stopBits;
-            _comPort.Parity = _parity;
-            _comPort.PortName = _portName;
-            _comPort.Encoding = Encoding.UTF8;
-            _comPort.NewLine = NewlineString;
-
-            _comPort.WriteTimeout = 500;
-            _comPort.ReadTimeout = 500;
-
-            _comPort.Open();
-            ConnectionStateChanged?.Invoke(this, new SerialCommunicationManagerConnectionEventArgs(ConnectionStates.Open));
-            _comPort.DiscardOutBuffer();
-            _comPort.DiscardInBuffer();
-
-            _type = MessageTypes.Status;
-            _msg = string.Format("Port opened at {0}", DateTime.Now.ToString("dd-MM-yyyy hh:mm:ss.f"));
-
-            UpdateMessage?.Invoke(this, new SerialCommunicationManagerMessageEventArgs(_msg, _type));
-            return true;
-        }
-        catch (Exception ex)
-        {
-            UpdateMessage?.Invoke(this, new SerialCommunicationManagerMessageEventArgs(ex.Message, MessageTypes.Error));
-            ConnectionStateChanged?.Invoke(this, new SerialCommunicationManagerConnectionEventArgs(ConnectionStates.Closed));
-            return false;
-        }
-    }
-
-    public void ClosePort()
-    {
-        if (_comPort.IsOpen)
-        {
-            _msg = string.Format("Port closed at {0}", DateTime.Now.ToString("dd-MM-yyyy hh:mm:ss.f"));
-            _type = MessageTypes.Status;
-            _comPort.Close();
-            UpdateMessage?.Invoke(this, new SerialCommunicationManagerMessageEventArgs(_msg, _type));
-            ConnectionStateChanged?.Invoke(this, new SerialCommunicationManagerConnectionEventArgs(ConnectionStates.Closed));
-        }
-        else
-        {
-            _msg = string.Format("Port already closed");
-            _type = MessageTypes.Warning;
-            UpdateMessage?.Invoke(this, new SerialCommunicationManagerMessageEventArgs(_msg, _type));
-            ConnectionStateChanged?.Invoke(this, new SerialCommunicationManagerConnectionEventArgs(ConnectionStates.Closed));
-        }
-    }
-
-    public void GetTransmissionValues(ref ComboBox obj)
-    {
-        obj.Items.Clear();
-        foreach (string str in Enum.GetNames(typeof(TransmissionTypes)))
-            obj.Items.Add(str);
-    }
-
-    public void GetNewLineValues(ref ComboBox obj)
-    {
-        obj.Items.Clear();
-        foreach (string str in Enum.GetNames(typeof(NewLineTypes)))
-            obj.Items.Add(str);
-    }
-
-    public void GetParityValues(ref ComboBox obj)
-    {
-        obj.Items.Clear();
-        foreach (string str in Enum.GetNames(typeof(Parity)))
-            obj.Items.Add(str);
-    }
-
-    public void GetStopBitValues(ref ComboBox obj)
-    {
-        obj.Items.Clear();
-        foreach (string str in Enum.GetNames(typeof(StopBits)))
-            obj.Items.Add(str);
-    }
-
-    public void GetDataBitValues(ref ComboBox obj)
-    {
-        obj.Items.Clear();
-        obj.Items.AddRange(new[] { "7", "8", "9" });
-    }
-
-    public void GetPortNames(ref ComboBox obj)
-    {
-        obj.Items.Clear();
-        foreach (string str in SerialPort.GetPortNames())
-            obj.Items.Add(str);
-    }
-
-    private void comPort_DataReceived(object sender, SerialDataReceivedEventArgs e)
-    {
-        try
-        {
-            switch (RxTransmissionType)
-            {
-                case TransmissionTypes.Text:
-                    {
-                        string msg = _comPort.ReadExisting;
-                        _type = MessageTypes.Incoming;
-                        _msg = msg;
-                        break;
-                    }
-                case TransmissionTypes.Hex:
-                    {
-                        int bytes = _comPort.BytesToRead;
-                        byte[] comBuffer = new byte[bytes];
-                        _comPort.Read(comBuffer, 0, bytes);
-                        _type = MessageTypes.Incoming;
-                        _msg = ByteToHex(comBuffer);
-                        break;
-                    }
-
-                default:
-                    {
-                        string str = _comPort.ReadExisting();
-                        _type = MessageTypes.Incoming;
-                        _msg = str;
-                        break;
-                    }
-            }
-
-            UpdateMessage?.Invoke(this, new SerialCommunicationManagerMessageEventArgs(_msg, _type));
-        }
-        catch (Exception ex)
-        {
-            ExceptionMessageBox.ShowDetailedException(ex);
-        }
-    }
-
-    public enum TransmissionTypes
-    {
-        Text,
-        Hex
-    }
-
-    public enum MessageTypes
-    {
-        Incoming,
-        Outgoing,
-        Normal,
-        Warning,
-        Error,
-        Status
-    }
-
-    public enum NewLineTypes
-    {
-        Cr,
-        Lf,
-        CrLf
-    }
-
-    public enum ConnectionStates
-    {
-        Open,
-        Closed,
-        Error
-    }
-}
-
-public partial class SerialCommunicationManagerMessageEventArgs : EventArgs
-{
-
-    public SerialCommunicationManagerMessageEventArgs()
-    {
-    }
-
-    public SerialCommunicationManagerMessageEventArgs(string msg, SerialCommunicationManager.MessageTypes mtp) : base()
-    {
-
-        _message = msg;
-        _type = mtp;
-        _eventTime = DateTime.Now;
-    }
-
-    public SerialCommunicationManagerMessageEventArgs(string msg, SerialCommunicationManager.MessageTypes mtp, SerialCommunicationManager.TransmissionTypes tt) : base()
-    {
-
-        _message = msg;
-        _type = mtp;
-        _eventTime = DateTime.Now;
-        _tt = tt;
-    }
-
-    private readonly DateTime _eventTime;
-    public DateTime EventTime
-    {
-        get
-        {
-            return _eventTime;
-        }
-    }
-
-    private readonly string _message;
-    public string Message
-    {
-        get
-        {
-            string result = Regex.Replace(_message, @"[\r\n]+?", "", RegexOptions.IgnoreCase);
-            if (_tt == SerialCommunicationManager.TransmissionTypes.Hex)
-            {
-                return result;
-            }
             else
             {
-                return result + Environment.NewLine;
+                this.Message = string.Format("Port already closed");
+                this.MessageType = MessageTypes.Warning;
+                UpdateMessage?.Invoke(this, new SerialCommunicationManagerMessageEventArgs(this.Message, this.MessageType));
+                ConnectionStateChanged?.Invoke(this, new SerialCommunicationManagerConnectionEventArgs(ConnectionStates.Closed));
             }
         }
-    }
 
-    private readonly SerialCommunicationManager.MessageTypes _type;
-    public SerialCommunicationManager.MessageTypes MessageType
-    {
-        get
+        public List<string> GetTransmissionValues()
         {
-            return _type;
+            List<string> values = new List<string>();
+
+            foreach (string str in Enum.GetNames(typeof(TransmissionTypes)))
+                values.Add(str);
+
+            return values;
+        }
+
+        public List<string> GetNewLineValues()
+        {
+            List<string> values = new List<string>();
+
+            foreach (string str in Enum.GetNames(typeof(NewLineTypes)))
+                values.Add(str);
+
+            return values;
+        }
+
+        public List<string> GetParityValues()
+        {
+            List<string> values = new List<string>();
+            foreach (string str in Enum.GetNames(typeof(Parity)))
+                values.Add(str);
+
+            return values;
+        }
+
+        public List<string> GetStopBitValues()
+        {
+            List<string> values = new List<string>();
+            foreach (string str in Enum.GetNames(typeof(StopBits)))
+                values.Add(str);
+
+            return values;
+        }
+
+        public List<string> GetDataBitValues()
+        {
+            return new List<string> { "7", "8", "9" };            
+        }
+
+        public List<string> GetPortNames()
+        {
+            List<string> values = new List<string>();
+            foreach (string str in SerialPort.GetPortNames())
+                values.Add(str);
+
+            return values;
+        }
+
+        private void ComPort_DataReceived(object sender, SerialDataReceivedEventArgs e)
+        {
+            try
+            {
+                switch (RxTransmissionType)
+                {
+                    case TransmissionTypes.Text:
+                        {
+                            this.MessageType = MessageTypes.Incoming;
+                            this.Message = this.CommPort.ReadExisting();
+                            break;
+                        }
+                    case TransmissionTypes.Hex:
+                        {
+                            int bytes = this.CommPort.BytesToRead;
+                            byte[] comBuffer = new byte[bytes];
+                            this.CommPort.Read(comBuffer, 0, bytes);
+                            this.MessageType = MessageTypes.Incoming;
+                            this.Message = ByteToHex(comBuffer);
+                            break;
+                        }
+
+                    default:
+                        {
+                            this.MessageType = MessageTypes.Incoming;
+                            this.Message = this.CommPort.ReadExisting();
+                            break;
+                        }
+                }
+
+                UpdateMessage?.Invoke(this, new SerialCommunicationManagerMessageEventArgs(this.Message, this.MessageType));
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine(ex);
+            }
+        }
+
+        public enum TransmissionTypes
+        {
+            Text,
+            Hex,
+            Bin,
+            Dec
+        }
+
+        public enum MessageTypes
+        {
+            Incoming,
+            Outgoing,
+            Normal,
+            Warning,
+            Error,
+            Status
+        }
+
+        public enum NewLineTypes
+        {
+            Cr,
+            Lf,
+            CrLf
+        }
+
+        public enum ConnectionStates
+        {
+            Open,
+            Closed,
+            Error
         }
     }
 
-    private readonly SerialCommunicationManager.TransmissionTypes _tt;
-    public SerialCommunicationManager.TransmissionTypes TransmissionType
+    public class SerialCommunicationManagerMessageEventArgs : EventArgs
     {
-        get
+
+        public SerialCommunicationManagerMessageEventArgs()
         {
-            return _tt;
         }
+
+        public SerialCommunicationManagerMessageEventArgs(string msg, SerialCommunicationManager.MessageTypes mtp) : base()
+        {
+
+            this.Message  = msg;
+            this.MessageType = mtp;
+            this.EventTime = DateTime.Now;
+        }
+
+        public SerialCommunicationManagerMessageEventArgs(string msg, SerialCommunicationManager.MessageTypes mtp, SerialCommunicationManager.TransmissionTypes tt) : base()
+        {
+
+            this.Message = msg;
+            this.MessageType = mtp;
+            this.EventTime = DateTime.Now;
+            this.TransmissionType = tt;
+        }
+
+        public DateTime EventTime { get; set; }
+
+        public string Message
+        {
+            get
+            {
+                string result = Regex.Replace(this.Message, @"[\r\n]+?", "", RegexOptions.IgnoreCase);
+                if (this.TransmissionType == SerialCommunicationManager.TransmissionTypes.Hex)
+                {
+                    return result;
+                }
+                else
+                {
+                    return result + Environment.NewLine;
+                }
+            }
+            set
+            {
+                this.Message = value;
+            }
+        }
+
+        public readonly SerialCommunicationManager.MessageTypes MessageType;
+
+        public readonly SerialCommunicationManager.TransmissionTypes TransmissionType;
     }
 
-}
-
-public partial class SerialCommunicationManagerConnectionEventArgs : EventArgs
-{
-
-    public SerialCommunicationManagerConnectionEventArgs()
-    {
-    }
-
-    public SerialCommunicationManagerConnectionEventArgs(SerialCommunicationManager.ConnectionStates cst) : base()
+    public class SerialCommunicationManagerConnectionEventArgs : EventArgs
     {
 
-        _state = cst;
-        _eventTime = DateTime.Now;
-    }
+        public SerialCommunicationManagerConnectionEventArgs()
+        {
+        }
 
-    private DateTime _eventTime;
-    public DateTime EventTime
-    {
-        get
+        public SerialCommunicationManagerConnectionEventArgs(SerialCommunicationManager.ConnectionStates cst) : base()
         {
-            return _eventTime;
-        }
-        set
-        {
-            _eventTime = value;
-        }
-    }
 
-    private SerialCommunicationManager.ConnectionStates _state;
-    public SerialCommunicationManager.ConnectionStates State
-    {
-        get
-        {
-            return _state;
+            this.ConnectionState = cst;
+            this.EventTime = DateTime.Now;
         }
-        set
-        {
-            _state = value;
-        }
+
+        public DateTime EventTime { get; set; }
+
+        public SerialCommunicationManager.ConnectionStates ConnectionState { get; set; }
     }
 }
