@@ -315,6 +315,13 @@ namespace nppSerialMonitor.Classes
             return values;
         }
 
+        public List<int> GetBaudValues()
+        {
+            List<int> values = new List<int> { 9600, 19200, 38400, 57600, 115200, 250000 } ;
+
+            return values;
+        }
+
         public List<string> GetStopBitValues()
         {
             List<string> values = new List<string>();
@@ -324,9 +331,9 @@ namespace nppSerialMonitor.Classes
             return values;
         }
 
-        public List<string> GetDataBitValues()
+        public List<int> GetDataBitValues()
         {
-            return new List<string> { "7", "8", "9" };            
+            return new List<int> { 4,5,6,7,8 };            
         }
 
         public List<string> GetPortNames()
@@ -419,7 +426,7 @@ namespace nppSerialMonitor.Classes
         public SerialCommunicationManagerMessageEventArgs(string msg, SerialCommunicationManager.MessageTypes mtp) : base()
         {
 
-            this.Message  = msg;
+            this._Message  = msg;
             this.MessageType = mtp;
             this.EventTime = DateTime.Now;
         }
@@ -435,11 +442,12 @@ namespace nppSerialMonitor.Classes
 
         public DateTime EventTime { get; set; }
 
+        private string _Message;
         public string Message
         {
             get
             {
-                string result = Regex.Replace(this.Message, @"[\r\n]+?", "", RegexOptions.IgnoreCase);
+                string result = Regex.Replace(this._Message, @"[\r\n]+?", "", RegexOptions.IgnoreCase);
                 if (this.TransmissionType == SerialCommunicationManager.TransmissionTypes.Hex)
                 {
                     return result;
@@ -451,7 +459,7 @@ namespace nppSerialMonitor.Classes
             }
             set
             {
-                this.Message = value;
+                this._Message = value;
             }
         }
 

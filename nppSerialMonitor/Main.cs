@@ -1,4 +1,6 @@
 ﻿using System.Drawing;
+using System.Drawing.Imaging;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using Kbg.NppPluginNET.PluginInfrastructure;
 using nppSerialMonitor.Storage;
@@ -8,7 +10,7 @@ namespace Kbg.NppPluginNET
     class Main
     {
         internal const string PluginName = "nppSerialMonitor";
-        static ConfigAndGenerate ConfigAndGenerate = null;
+        static SerialMonitorUI SerialMonitorUI = null;
         static About About = null;
         static Settings MySettings = null;
 
@@ -44,15 +46,10 @@ namespace Kbg.NppPluginNET
 
         internal static void myDockableDialog()
         {
-            MySettings = new Settings();
-            MySettings.Load();
+            //MySettings = new Settings();
+            //MySettings.Load();
 
-            ConfigAndGenerate = new ConfigAndGenerate();
-            ConfigAndGenerate.settings = MySettings;
-            ConfigAndGenerate.LoadSettings();
-            ConfigAndGenerate.ShowDialog();
-
-            ConfigAndGenerate = null;
+            ToggleSerialMonitorUI();
         }
         /// <summary>
         /// Shows the "About" dialog window
@@ -63,6 +60,46 @@ namespace Kbg.NppPluginNET
             About.ShowDialog();
             About = null;
 
+        }
+
+        private static void ToggleSerialMonitorUI()
+        {
+            SerialMonitorUIVisible();
+        }
+
+        public static void SerialMonitorUIVisible(bool? show = null)
+        {
+            if (SerialMonitorUI == null)
+            {
+                SerialMonitorUI = new SerialMonitorUI();
+
+                SerialMonitorUI.RefreshLists();
+
+                var SerialMonitorUIData = new NppTbData
+                {
+                    hClient = SerialMonitorUI.Handle,
+                    pszName = "Serial Monitor",
+                    dlgID = 0,
+                    uMask = NppTbMsg.DWS_DF_CONT_RIGHT,
+                    hIconTab = 0,
+                    pszModuleName = PluginName
+                };
+                var SerialMonitorUIPointer = Marshal.AllocHGlobal(Marshal.SizeOf(SerialMonitorUIData));
+                Marshal.StructureToPtr(SerialMonitorUIData, SerialMonitorUIPointer, false);
+
+                Win32.SendMessage(PluginBase.nppData._nppHandle, (uint)NppMsg.NPPM_DMMREGASDCKDLG, 0, SerialMonitorUIPointer);
+            }
+            else
+            {
+                if (show ?? !SerialMonitorUI.Visible)
+                {
+                    Win32.SendMessage(PluginBase.nppData._nppHandle, (uint)NppMsg.NPPM_DMMSHOW, 0, SerialMonitorUI.Handle);
+                }
+                else
+                {
+                    Win32.SendMessage(PluginBase.nppData._nppHandle, (uint)NppMsg.NPPM_DMMHIDE, 0, SerialMonitorUI.Handle);
+                }
+            }
         }
 
     }
