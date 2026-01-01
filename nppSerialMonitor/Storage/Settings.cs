@@ -10,6 +10,8 @@ namespace nppSerialMonitor.Storage
 {
     public class Settings
     {
+        private const int SettingCount = 5;
+
         public SettingsModel settings { get; set; }
 
         private string FilePath { get; set; }
@@ -69,7 +71,7 @@ namespace nppSerialMonitor.Storage
         private SettingsModel DeserializeIni(string ini)
         {
             SettingsModel tmp = new SettingsModel();
-            tmp.ConfigItems = new ConfigItem[21];
+            tmp.ConfigItems = new ConfigItem[SettingCount];
 
             using (FileStream stream = new FileStream(ini, FileMode.Open, FileAccess.Read, FileShare.Read))
             {
@@ -84,7 +86,7 @@ namespace nppSerialMonitor.Storage
                     tmp.Appversion = parts[1];
 
                     int i = 0;
-                    while (!reader.EndOfStream || i >= 21)
+                    while (!reader.EndOfStream || i >= SettingCount)
                     {
                         line = reader.ReadLine();
                         if (line == "" || line == null) break;
@@ -103,7 +105,7 @@ namespace nppSerialMonitor.Storage
         private SettingsModel DeserializeIniFromString(string ini)
         {
             SettingsModel tmp = new SettingsModel();
-            tmp.ConfigItems = new ConfigItem[21];
+            tmp.ConfigItems = new ConfigItem[SettingCount];
 
             using (StringReader reader = new StringReader(ini))
             {
@@ -116,7 +118,7 @@ namespace nppSerialMonitor.Storage
                 tmp.Appversion = parts[1];
 
                 int i = 0;
-                while (line != "" || i >= 21)
+                while (line != "" || i >= SettingCount)
                 {
                     line = reader.ReadLine();
                     if (line == "" || line == null) break;

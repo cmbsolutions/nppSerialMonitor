@@ -46,8 +46,8 @@ namespace Kbg.NppPluginNET
 
         internal static void myDockableDialog()
         {
-            //MySettings = new Settings();
-            //MySettings.Load();
+            MySettings = new Settings();
+            MySettings.Load();
 
             ToggleSerialMonitorUI();
         }
@@ -72,8 +72,10 @@ namespace Kbg.NppPluginNET
             if (SerialMonitorUI == null)
             {
                 SerialMonitorUI = new SerialMonitorUI();
-
+                SerialMonitorUI.settings = MySettings;
                 SerialMonitorUI.RefreshLists();
+
+                SerialMonitorUI.LoadSettings();
 
                 var SerialMonitorUIData = new NppTbData
                 {

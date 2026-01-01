@@ -1,11 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.IO.Ports;
 using System.Linq;
+using System.Management;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace nppSerialMonitor.Classes
@@ -254,7 +257,7 @@ namespace nppSerialMonitor.Classes
                 this.CommPort.DiscardInBuffer();
 
                 this.MessageType = MessageTypes.Status;
-                this.Message = $"Port opened at {DateTime.Now:dd-MM-yyyy hh:mm:ss.f}";
+                this.Message = $"Port opened at {DateTime.Now:dd-MM-yyyy HH:mm:ss.fff}";
 
                 UpdateMessage?.Invoke(this, new SerialCommunicationManagerMessageEventArgs(this.Message, this.MessageType));
                 return true;
@@ -271,7 +274,7 @@ namespace nppSerialMonitor.Classes
         {
             if (this.CommPort.IsOpen)
             {
-                this.Message = $"Port closed at {DateTime.Now:dd-MM-yyyy hh:mm:ss.f}";
+                this.Message = $"Port closed at {DateTime.Now:dd-MM-yyyy HH:mm:ss.fff}";
                 this.MessageType = MessageTypes.Status;
                 this.CommPort.Close();
                 UpdateMessage?.Invoke(this, new SerialCommunicationManagerMessageEventArgs(this.Message, this.MessageType));
@@ -340,7 +343,11 @@ namespace nppSerialMonitor.Classes
         {
             List<string> values = new List<string>();
             foreach (string str in SerialPort.GetPortNames())
+            {
+                //TODO: Use devicedescriptions so the list wont show double ports
+                //string s = GetDeviceDescription(str);
                 values.Add(str);
+            }
 
             return values;
         }
@@ -349,12 +356,34 @@ namespace nppSerialMonitor.Classes
         {
             try
             {
+
+                //MemoryStream stream = new MemoryStream();
+
+                //this.CommPort.BaseStream.CopyTo(stream);
+                
+
                 switch (RxTransmissionType)
                 {
                     case TransmissionTypes.Text:
                         {
                             this.MessageType = MessageTypes.Incoming;
-                            this.Message = this.CommPort.ReadExisting();
+                            string data = this.CommPort.ReadLine();
+                            
+                            while (data != "")
+                            {
+                                if ( this.Message.Length == 0)
+                                {
+                                    this.Message = data + Environment.NewLine;
+                                }else
+                                {
+                                    this.Message += data + Environment.NewLine;
+                                }
+                                data = this.CommPort.ReadLine();
+                            }
+                            if (this.Message.Length == 0)
+                            {
+                                this.Message = this.CommPort.ReadExisting();
+                            }
                             break;
                         }
                     case TransmissionTypes.Hex:
@@ -413,6 +442,33 @@ namespace nppSerialMonitor.Classes
             Open,
             Closed,
             Error
+        }
+
+        private string GetDeviceDescription(string portname)
+        {
+            try
+            {
+                string query = $"SELECT * FROM Win32_PnPEntity WHERE Name LIKE '%({portname}%'";
+
+                // Create a ManagementObjectSearcher with the query
+                using (ManagementObjectSearcher searcher = new ManagementObjectSearcher(query))
+                {
+                    // Iterate through the search results
+                    foreach (ManagementObject obj in searcher.Get())
+                    {
+                        // Check if the object has a "Name" property
+                        if (obj["Name"] != null)
+                        {
+                            // Get the COM port description from the "Name" property
+                            return obj["Name"].ToString();
+                        }
+                    }
+                }
+                return "";
+            } catch (Exception ex)
+            {
+                return "";
+            }
         }
     }
 

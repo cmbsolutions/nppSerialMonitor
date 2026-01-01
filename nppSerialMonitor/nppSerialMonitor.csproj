@@ -76,6 +76,7 @@
     <Reference Include="System" />
     <Reference Include="System.Data" />
     <Reference Include="System.Drawing" />
+    <Reference Include="System.Management" />
     <Reference Include="System.Net" />
     <Reference Include="System.Runtime.Serialization" />
     <Reference Include="System.Windows.Forms" />
@@ -156,7 +157,13 @@
     <Resource Include="ILMergeOrder.txt" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="PluginInfrastructure\DllExport\NppPlugin.DllExport.targets" />
     <None Include="Resources\cancel.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="PluginInfrastructure\DllExport\Mono.Cecil.dll" />
+    <Content Include="PluginInfrastructure\DllExport\NppPlugin.DllExport.dll" />
+    <Content Include="PluginInfrastructure\DllExport\NppPlugin.DllExport.MSBuild.dll" />
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <Import Project="$(MSBuildProjectDirectory)\PluginInfrastructure\DllExport\NppPlugin.DllExport.targets" />
