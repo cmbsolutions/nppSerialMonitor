@@ -1,17 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using System.IO.Ports;
-using System.Linq;
-using System.Management;
-using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading;
-using System.Threading.Tasks;
+using System.Management;
 
-namespace nppSerialMonitor.Classes
+
+namespace nppSerialMonitor.Modules
 {
     public class SerialCommunicationManager
     {

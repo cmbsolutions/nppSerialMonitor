@@ -1,17 +1,13 @@
 ﻿using nppSerialMonitor.Properties;
 using System;
 using System.IO;
-using System.Text;
 using System.Windows.Forms;
 using nppSerialMonitor.Storage.Models;
-using System.Linq;
 
 namespace nppSerialMonitor.Storage
 {
     public class Settings
     {
-        private const int SettingCount = 5;
-
         public SettingsModel settings { get; set; }
 
         private string FilePath { get; set; }
@@ -20,7 +16,7 @@ namespace nppSerialMonitor.Storage
         {
             string appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
             string savePath = Path.Combine(appDataPath, "CMBSolutions", "nppSerialMonitor");
-            FilePath = Path.Combine(savePath, "nppSerialMonitor.ini");
+            FilePath = Path.Combine(savePath, "nppSerialMonitor.json");
 
             if (!File.Exists(FilePath) || reset)
             {
@@ -44,22 +40,15 @@ namespace nppSerialMonitor.Storage
 
             try
             {
-                settings = DeserializeIni(FilePath);
+                settings = DeserializeJSonFile(FilePath);
 
-                
-                if (settings.Appversion != "1.0.0")
+
+                if (settings.appversion != "0.0.1")
                 {
-                    SettingsModel defaults = DeserializeIniFromString(Resources.nppSerialMonitorSettings);
+                    SettingsModel defaults = DeserializeJSonFromString(Resources.nppSerialMonitorSettings);
 
-                    for (int i=0; i < defaults.ConfigItems.Length; i++)
-                    {
-                        if (settings.ConfigItems[i] == null)
-                        {
-                            settings.ConfigItems[i] = defaults.ConfigItems[i];
-                        }
-                    }
-                    settings.Appname = "nppSerialMonitor";
-                    settings.Appversion = "1.0.0";
+                    settings.appname = "nppSerialMonitor";
+                    settings.appversion = "0.0.1";
                 }
             }
             catch (Exception ex)
@@ -68,91 +57,23 @@ namespace nppSerialMonitor.Storage
             }
         }
 
-        private SettingsModel DeserializeIni(string ini)
+        private SettingsModel DeserializeJSonFile(string jsonfile)
         {
-            SettingsModel tmp = new SettingsModel();
-            tmp.ConfigItems = new ConfigItem[SettingCount];
-
-            using (FileStream stream = new FileStream(ini, FileMode.Open, FileAccess.Read, FileShare.Read))
-            {
-                using (StreamReader reader = new StreamReader(stream))
-                {
-                    String line = reader.ReadLine();
-                    String[] parts = line.Split('=');
-                    tmp.Appname = parts[0];
-
-                    line = reader.ReadLine();
-                    parts = line.Split('=');
-                    tmp.Appversion = parts[1];
-
-                    int i = 0;
-                    while (!reader.EndOfStream || i >= SettingCount)
-                    {
-                        line = reader.ReadLine();
-                        if (line == "" || line == null) break;
-                        parts = line.Split(new char[] { '=' }, 2);
-
-                        tmp.ConfigItems[i] = new ConfigItem { Name = parts[0], Value = parts[1] };
-                        
-                        i++;
-                    }
-                }
-            }
-
+            SettingsModel tmp = Newtonsoft.Json.JsonConvert.DeserializeObject<SettingsModel>(File.ReadAllText(jsonfile));
             return tmp;
         }
 
-        private SettingsModel DeserializeIniFromString(string ini)
+        private SettingsModel DeserializeJSonFromString(string json)
         {
-            SettingsModel tmp = new SettingsModel();
-            tmp.ConfigItems = new ConfigItem[SettingCount];
-
-            using (StringReader reader = new StringReader(ini))
-            {
-                String line = reader.ReadLine();
-                String[] parts = line.Split('=');
-                tmp.Appname = parts[0];
-
-                line = reader.ReadLine();
-                parts = line.Split('=');
-                tmp.Appversion = parts[1];
-
-                int i = 0;
-                while (line != "" || i >= SettingCount)
-                {
-                    line = reader.ReadLine();
-                    if (line == "" || line == null) break;
-                    parts = line.Split(new char[] { '=' }, 2);
-
-                    tmp.ConfigItems[i] = new ConfigItem { Name = parts[0], Value = parts[1] };
-
-                    i++;
-                }
-            }
-
+            SettingsModel tmp = Newtonsoft.Json.JsonConvert.DeserializeObject<SettingsModel>(json);
             return tmp;
-        }
-
-        private string SerializeToIni(SettingsModel obj)
-        {
-
-            StringBuilder sb = new StringBuilder(); 
-
-            sb.AppendLine($"appname={obj.Appname}");
-            sb.AppendLine($"appversion={obj.Appversion}");
-                    
-            foreach ( ConfigItem configitem in obj.ConfigItems )
-            {
-                sb.AppendLine($"{configitem.Name}={configitem.Value}");
-            }
-            return sb.ToString();
         }
 
         // Save JSON string to a file
         public void Save()
         {
-            string ini = SerializeToIni(settings);
-            File.WriteAllText(FilePath, ini);                       
+            string json = Newtonsoft.Json.JsonConvert.SerializeObject(settings, Newtonsoft.Json.Formatting.Indented);
+            File.WriteAllText(FilePath, json);                       
         }
     }
 }

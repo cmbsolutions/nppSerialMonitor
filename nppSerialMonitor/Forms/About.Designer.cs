@@ -37,19 +37,19 @@
             // label1
             // 
             this.label1.AutoSize = true;
-            this.label1.Location = new System.Drawing.Point(38, 9);
+            this.label1.Location = new System.Drawing.Point(55, 9);
             this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(189, 39);
+            this.label1.Size = new System.Drawing.Size(292, 39);
             this.label1.TabIndex = 0;
-            this.label1.Text = "nppSerialMonitor v1.0.0\r\n\r\nInteract with serial communications";
+            this.label1.Text = "nppSerialMonitor v1.4.0\r\n\r\nVisualize XML Documents in a treeview including values";
             this.label1.TextAlign = System.Drawing.ContentAlignment.TopCenter;
             // 
             // linkLabel1
             // 
             this.linkLabel1.AutoSize = true;
-            this.linkLabel1.Location = new System.Drawing.Point(-4, 59);
+            this.linkLabel1.Location = new System.Drawing.Point(68, 57);
             this.linkLabel1.Name = "linkLabel1";
-            this.linkLabel1.Size = new System.Drawing.Size(272, 13);
+            this.linkLabel1.Size = new System.Drawing.Size(251, 13);
             this.linkLabel1.TabIndex = 1;
             this.linkLabel1.TabStop = true;
             this.linkLabel1.Text = "https://github.com/cmbsolutions/nppSerialMonitor";
@@ -59,17 +59,17 @@
             // label2
             // 
             this.label2.AutoSize = true;
-            this.label2.Location = new System.Drawing.Point(55, 81);
+            this.label2.Location = new System.Drawing.Point(116, 81);
             this.label2.Name = "label2";
-            this.label2.Size = new System.Drawing.Size(154, 26);
+            this.label2.Size = new System.Drawing.Size(155, 26);
             this.label2.TabIndex = 2;
-            this.label2.Text = "By maurice@cmbsolutions.nl\r\nLicense: GPLv3";
+            this.label2.Text = "By maurice@cmbsolutions.nl\r\nLicense: Apache 2.0";
             this.label2.TextAlign = System.Drawing.ContentAlignment.TopCenter;
             // 
             // button1
             // 
             this.button1.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.button1.Location = new System.Drawing.Point(188, 107);
+            this.button1.Location = new System.Drawing.Point(307, 93);
             this.button1.Name = "button1";
             this.button1.Size = new System.Drawing.Size(75, 23);
             this.button1.TabIndex = 3;
@@ -84,7 +84,7 @@
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Dpi;
             this.AutoSize = true;
             this.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
-            this.ClientSize = new System.Drawing.Size(265, 132);
+            this.ClientSize = new System.Drawing.Size(384, 118);
             this.Controls.Add(this.button1);
             this.Controls.Add(this.label2);
             this.Controls.Add(this.linkLabel1);

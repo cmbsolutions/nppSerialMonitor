@@ -19,7 +19,7 @@ namespace nppSerialMonitor.Properties {
     // class via a tool like ResGen or Visual Studio.
     // To add or remove a member, edit your .ResX file then rerun ResGen
     // with the /str option, or rebuild your VS project.
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "17.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "18.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     internal class Resources {
@@ -63,6 +63,26 @@ namespace nppSerialMonitor.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap button_blue_add {
+            get {
+                object obj = ResourceManager.GetObject("button_blue_add", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap button_blue_remove {
+            get {
+                object obj = ResourceManager.GetObject("button_blue_remove", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap cancel {
             get {
                 object obj = ResourceManager.GetObject("cancel", resourceCulture);
@@ -71,32 +91,68 @@ namespace nppSerialMonitor.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to [app]
-        ///appname=nppSerialMonitor
-        ///appversion=1.5.0
-        ///
-        ///[config]
-        ///NumericUpDownLength=32
-        ///NumericUpDownQuantity=8
-        ///CheckboxNumbers=true
-        ///CheckboxLowercase=true
-        ///CheckboxUppercase=true
-        ///CheckboxBeginLetter=true
-        ///CheckboxSymbols=true
-        ///TextboxSymbols=ISIjJCUmJygpKissLS4vOjs8PT4/QFtdXl9ge3x9fg==
-        ///CheckboxSimilar=true
-        ///CheckboxDuplicate=true
-        ///CheckboxSequential=true
-        ///TextboxPrefix=bXlfcHJlZml4
-        ///RadioButtonNew=true
-        ///RadioButtonCurrent=false
-        ///RadioButtonInline=false
-        ///TextboxSeperator=;
-        ///CheckboxSaveOnClose=tr [rest of string was truncated]&quot;;.
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap find {
+            get {
+                object obj = ResourceManager.GetObject("find", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap information_button {
+            get {
+                object obj = ResourceManager.GetObject("information_button", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {
+        ///    &quot;appname&quot;: &quot;nppSerialMonitor&quot;,
+        ///    &quot;appversion&quot;: &quot;0.0.1&quot;,
+        ///    &quot;toolStrip1&quot;: {
+        ///        &quot;tsbCaseSensitive&quot;: false,
+        ///        &quot;tsbRegex&quot;: false,
+        ///        &quot;tscboSearch&quot;: {
+        ///            &quot;History&quot;: [
+        ///                {
+        ///                    &quot;CaseSensitive&quot;: false,
+        ///                    &quot;Regex&quot;: false,
+        ///                    &quot;SearchText&quot;: &quot;Quantity&quot;
+        ///                },
+        ///                {
+        ///                    &quot;CaseSensitive&quot;: true,
+        ///                    &quot;Regex&quot;: false,
+        ///                    &quot;SearchText&quot;: &quot;Price&quot;
+        ///   [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string nppSerialMonitorSettings {
             get {
                 return ResourceManager.GetString("nppSerialMonitorSettings", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap refresh {
+            get {
+                object obj = ResourceManager.GetObject("refresh", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap undo {
+            get {
+                object obj = ResourceManager.GetObject("undo", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
             }
         }
     }

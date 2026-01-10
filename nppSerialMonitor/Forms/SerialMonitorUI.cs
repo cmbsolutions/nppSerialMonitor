@@ -1,15 +1,8 @@
 ﻿using Kbg.NppPluginNET.PluginInfrastructure;
-using nppSerialMonitor.Classes;
+using nppSerialMonitor.Modules;
 using nppSerialMonitor.Storage;
 using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
-using System.Drawing;
-using System.Linq;
 using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace Kbg.NppPluginNET
@@ -35,75 +28,12 @@ namespace Kbg.NppPluginNET
         public void LoadSettings()
         {
             RefreshOrLoad = true;
-            foreach (nppSerialMonitor.Storage.Models.ConfigItem configitem in settings.settings.ConfigItems)
-            {
-                if (configitem == null) { continue; }
-
-                Control ctrl = this.Controls.Find(configitem.Name, true).FirstOrDefault();
-
-                if (ctrl.Name.StartsWith("NumericUpDown"))
-                {
-                    NumericUpDown nupdown = ctrl as NumericUpDown;
-                    nupdown.Value = Convert.ToDecimal(configitem.Value);
-                }
-                if (ctrl.Name.StartsWith("Checkbox"))
-                {
-                    System.Windows.Forms.CheckBox check = ctrl as System.Windows.Forms.CheckBox;
-                    check.Checked = Convert.ToBoolean(configitem.Value);
-                    TriggerCheckBoxChangeEvent(check);
-                }
-                if (ctrl.Name.StartsWith("Textbox"))
-                {
-                    TextBox txt = ctrl as TextBox;
-                    txt.Text = configitem.Value;
-                }
-                if (ctrl.Name.StartsWith("Radio"))
-                {
-                    System.Windows.Forms.RadioButton radio = ctrl as System.Windows.Forms.RadioButton;
-                    radio.Checked = Convert.ToBoolean(configitem.Value);
-                }
-                if (ctrl.Name.StartsWith("ComboBox"))
-                {
-                    ComboBox cmb = ctrl as ComboBox;
-                    cmb.Text = configitem.Value;
-                }
-            }
+            RefreshLists();
             RefreshOrLoad = false;
         }
 
         private void SaveSettings()
         {
-            foreach (nppSerialMonitor.Storage.Models.ConfigItem configitem in settings.settings.ConfigItems)
-            {
-                Control ctrl = this.Controls.Find(configitem.Name, true).FirstOrDefault();
-
-                if (ctrl.Name.StartsWith("NumericUpDown"))
-                {
-                    NumericUpDown nupdown = ctrl as NumericUpDown;
-                    configitem.Value = nupdown.Value.ToString();
-                }
-                if (ctrl.Name.StartsWith("Checkbox"))
-                {
-                    System.Windows.Forms.CheckBox check = ctrl as System.Windows.Forms.CheckBox;
-                    configitem.Value = (check.Checked ? "true" : "false");
-                }
-                if (ctrl.Name.StartsWith("Textbox"))
-                {
-                    TextBox txt = ctrl as TextBox;
-                    configitem.Value = txt.Text;
-                }
-                if (ctrl.Name.StartsWith("Radio"))
-                {
-                    System.Windows.Forms.RadioButton radio = ctrl as System.Windows.Forms.RadioButton;
-                    configitem.Value = (radio.Checked ? "true" : "false");
-                }
-                if (ctrl.Name.StartsWith("ComboBox"))
-                {
-                    ComboBox cmb = ctrl as ComboBox;
-                    configitem.Value = cmb.Text;
-                }
-            }
-
             settings.Save();
         }
 

@@ -1,21 +1,25 @@
-﻿using System.Drawing;
-using System.Drawing.Imaging;
-using System.Runtime.InteropServices;
-using System.Windows.Forms;
-using Kbg.NppPluginNET.PluginInfrastructure;
+﻿using Kbg.NppPluginNET.PluginInfrastructure;
+using NppPluginNET.Utils;
 using nppSerialMonitor.Storage;
+using System;
+using System.IO;
+using System.Reflection;
+using System.Runtime.InteropServices;
 
 namespace Kbg.NppPluginNET
 {
     class Main
     {
+        public static readonly string PluginConfigDirectory = Path.Combine(Npp.notepad.GetConfigDirectory(), PluginName);
         internal const string PluginName = "nppSerialMonitor";
-        static SerialMonitorUI SerialMonitorUI = null;
+        static SerialMonitorUI serialMonitor = null;
         static About About = null;
         static Settings MySettings = null;
+        public static bool isShuttingDown = false;
+
 
         public static void OnNotification(ScNotification notification)
-        {  
+        {
             // This method is invoked whenever something is happening in notepad++
             // use eg. as
             // if (notification.Header.Code == (uint)NppMsg.NPPN_xxx)
@@ -24,16 +28,33 @@ namespace Kbg.NppPluginNET
             //
             // if (notification.Header.Code == (uint)SciMsg.SCNxxx)
             // { ... }
+            switch ((NppMsg)notification.Header.Code)
+            {
+                case NppMsg.NPPN_BUFFERACTIVATED:
+                case NppMsg.NPPN_FILESAVED:
+                    //serialMonitor?.RefreshFromActiveDoc();
+                    break;
+            }
 
+        }
+
+        private static Assembly LoadDependency(object sender, ResolveEventArgs args)
+        {
+            string assemblyFile = Path.Combine(Npp.pluginDllDirectory, new AssemblyName(args.Name).Name) + ".dll";
+            if (File.Exists(assemblyFile))
+                return Assembly.LoadFrom(assemblyFile);
+            return null;
         }
 
         internal static void CommandMenuInit()
         {
-            PluginBase.SetCommand(0, "Show Serial Monitor", myDockableDialog );
+            AppDomain.CurrentDomain.AssemblyResolve += LoadDependency;
+
+            PluginBase.SetCommand(0, "Show SerialMonitor", myDockableDialog);
             PluginBase.SetCommand(1, "&About", AboutnppSerialMonitor);
         }
 
-        internal static void SetToolBarIcon()
+        internal static void SetToolBarIcons()
         {
 
         }
@@ -49,7 +70,7 @@ namespace Kbg.NppPluginNET
             MySettings = new Settings();
             MySettings.Load();
 
-            ToggleSerialMonitorUI();
+            ToggleXmlViewerUI();
         }
         /// <summary>
         /// Shows the "About" dialog window
@@ -62,48 +83,71 @@ namespace Kbg.NppPluginNET
 
         }
 
-        private static void ToggleSerialMonitorUI()
+        private static void ToggleXmlViewerUI()
         {
-            SerialMonitorUIVisible();
+            XmlViewerUIVisible();
         }
 
-        public static void SerialMonitorUIVisible(bool? show = null)
+        public static void XmlViewerUIVisible(bool? show = null)
         {
-            if (SerialMonitorUI == null)
+            if (serialMonitor == null || serialMonitor.IsDisposed)
             {
-                SerialMonitorUI = new SerialMonitorUI();
-                SerialMonitorUI.settings = MySettings;
-                SerialMonitorUI.RefreshLists();
-
-                SerialMonitorUI.LoadSettings();
-
-                var SerialMonitorUIData = new NppTbData
+                serialMonitor = new SerialMonitorUI
                 {
-                    hClient = SerialMonitorUI.Handle,
-                    pszName = "Serial Monitor",
+                    settings = MySettings
+                };
+
+                serialMonitor.LoadSettings();
+                //serialMonitor.RefreshFromActiveDoc();
+
+                IntPtr hwndClient = serialMonitor.Handle;
+
+                var data = new NppTbData
+                {
+                    hClient = hwndClient,
+                    pszName = "SerialMonitor",
                     dlgID = 0,
-                    uMask = NppTbMsg.DWS_DF_CONT_RIGHT,
-                    hIconTab = 0,
+                    uMask = NppTbMsg.DWS_DF_CONT_RIGHT | NppTbMsg.DWS_ICONBAR,
+                    hIconTab = (uint)IntPtr.Zero,
                     pszModuleName = PluginName
                 };
-                var SerialMonitorUIPointer = Marshal.AllocHGlobal(Marshal.SizeOf(SerialMonitorUIData));
-                Marshal.StructureToPtr(SerialMonitorUIData, SerialMonitorUIPointer, false);
+                IntPtr pData = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(NppTbData)));
+                try
+                {
+                    Marshal.StructureToPtr(data, pData, false);
 
-                Win32.SendMessage(PluginBase.nppData._nppHandle, (uint)NppMsg.NPPM_DMMREGASDCKDLG, 0, SerialMonitorUIPointer);
+                    // Register the dockable window
+                    Win32.SendMessage(
+                        PluginBase.nppData._nppHandle,
+                        (uint)NppMsg.NPPM_DMMREGASDCKDLG,
+                        0, pData);
+                }
+                finally
+                {
+                    Marshal.FreeHGlobal(pData);
+                }
+
+                // First registration doesn't auto-show: do it explicitly
+                if (show ?? true)
+                {
+                    Win32.SendMessage(
+                        PluginBase.nppData._nppHandle,
+                        (uint)NppMsg.NPPM_DMMSHOW,
+                        0, hwndClient);
+                }
+
+                return;
+            }
+
+            // Already registered: toggle or force
+            if (show ?? !serialMonitor.Visible)
+            {
+                Win32.SendMessage(PluginBase.nppData._nppHandle, (uint)NppMsg.NPPM_DMMSHOW, 0, serialMonitor.Handle);
             }
             else
             {
-                if (show ?? !SerialMonitorUI.Visible)
-                {
-                    Win32.SendMessage(PluginBase.nppData._nppHandle, (uint)NppMsg.NPPM_DMMSHOW, 0, SerialMonitorUI.Handle);
-                }
-                else
-                {
-                    Win32.SendMessage(PluginBase.nppData._nppHandle, (uint)NppMsg.NPPM_DMMHIDE, 0, SerialMonitorUI.Handle);
-                }
+                Win32.SendMessage(PluginBase.nppData._nppHandle, (uint)NppMsg.NPPM_DMMHIDE, 0, serialMonitor.Handle);
             }
         }
-
     }
-
 }

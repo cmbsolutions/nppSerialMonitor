@@ -1,0 +1,9 @@
+{
+  "appname": "nppSerialMonitor",
+  "appversion": "0.0.1",
+  "port": "COM3",
+  "baud": "38400",
+  "databits": "8",
+  "parity": "None",
+  "stopbits": "One"
+}
