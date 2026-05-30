@@ -2,9 +2,10 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO.Ports;
+using System.Linq;
+using System.Management;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Management;
 
 
 namespace nppSerialMonitor.Modules
@@ -31,6 +32,9 @@ namespace nppSerialMonitor.Modules
         public string Message { get; set; }
         public MessageTypes MessageType { get; set; }
         public NewLineTypes NewLineType { get; set; }
+
+        private readonly StringBuilder _rxBuffer = new StringBuilder();
+        private readonly object _rxLock = new object();
 
         public string NewlineString
         {
@@ -244,8 +248,8 @@ namespace nppSerialMonitor.Modules
                 this.CommPort.Encoding = Encoding.UTF8;
                 this.CommPort.NewLine = NewlineString;
 
-                this.CommPort.WriteTimeout = 500;
-                this.CommPort.ReadTimeout = 500;
+                this.CommPort.WriteTimeout = 1500;
+                this.CommPort.ReadTimeout = 1500;
 
                 this.CommPort.Open();
                 ConnectionStateChanged?.Invoke(this, new SerialCommunicationManagerConnectionEventArgs(ConnectionStates.Open));
@@ -335,17 +339,9 @@ namespace nppSerialMonitor.Modules
             return new List<int> { 4,5,6,7,8 };            
         }
 
-        public List<string> GetPortNames()
+        public List<ComPortInfo> GetPortNames()
         {
-            List<string> values = new List<string>();
-            foreach (string str in SerialPort.GetPortNames())
-            {
-                //TODO: Use devicedescriptions so the list wont show double ports
-                //string s = GetDeviceDescription(str);
-                values.Add(str);
-            }
-
-            return values;
+            return this.GetComPortsWithDescriptions();
         }
 
         private void ComPort_DataReceived(object sender, SerialDataReceivedEventArgs e)
@@ -353,54 +349,36 @@ namespace nppSerialMonitor.Modules
             try
             {
 
-                //MemoryStream stream = new MemoryStream();
+                string chunk = this.CommPort.ReadExisting();
+                if (string.IsNullOrEmpty(chunk))
+                    return;
 
-                //this.CommPort.BaseStream.CopyTo(stream);
-                
-
-                switch (RxTransmissionType)
+                lock (_rxLock)
                 {
-                    case TransmissionTypes.Text:
-                        {
-                            this.MessageType = MessageTypes.Incoming;
-                            string data = this.CommPort.ReadLine();
-                            
-                            while (data != "")
-                            {
-                                if ( this.Message.Length == 0)
-                                {
-                                    this.Message = data + Environment.NewLine;
-                                }else
-                                {
-                                    this.Message += data + Environment.NewLine;
-                                }
-                                data = this.CommPort.ReadLine();
-                            }
-                            if (this.Message.Length == 0)
-                            {
-                                this.Message = this.CommPort.ReadExisting();
-                            }
-                            break;
-                        }
-                    case TransmissionTypes.Hex:
-                        {
-                            int bytes = this.CommPort.BytesToRead;
-                            byte[] comBuffer = new byte[bytes];
-                            this.CommPort.Read(comBuffer, 0, bytes);
-                            this.MessageType = MessageTypes.Incoming;
-                            this.Message = ByteToHex(comBuffer);
-                            break;
-                        }
+                    _rxBuffer.Append(chunk);
 
-                    default:
-                        {
-                            this.MessageType = MessageTypes.Incoming;
-                            this.Message = this.CommPort.ReadExisting();
-                            break;
-                        }
+                    while (true)
+                    {
+                        string data = _rxBuffer.ToString();
+                        int lf = data.IndexOf('\n');
+                        if (lf < 0) break; // no complete line yet
+
+                        // Extract a line (without LF)
+                        string line = data.Substring(0, lf);
+
+                        // Trim optional CR
+                        if (line.EndsWith("\r", StringComparison.Ordinal))
+                            line = line.Substring(0, line.Length - 1);
+
+                        // Remove consumed content (+ LF)
+                        _rxBuffer.Remove(0, lf + 1);
+
+                        // Fire exactly once per complete line
+                        this.MessageType = MessageTypes.Incoming;
+                        this.Message = line + "\n";
+                        UpdateMessage?.Invoke(this, new SerialCommunicationManagerMessageEventArgs(this.Message, this.MessageType));
+                    }
                 }
-
-                UpdateMessage?.Invoke(this, new SerialCommunicationManagerMessageEventArgs(this.Message, this.MessageType));
             }
             catch (Exception ex)
             {
@@ -428,9 +406,9 @@ namespace nppSerialMonitor.Modules
 
         public enum NewLineTypes
         {
-            Cr,
-            Lf,
-            CrLf
+            Cr = 13,
+            Lf = 10,
+            CrLf = 1310
         }
 
         public enum ConnectionStates
@@ -440,31 +418,56 @@ namespace nppSerialMonitor.Modules
             Error
         }
 
-        private string GetDeviceDescription(string portname)
+        private List<ComPortInfo> GetComPortsWithDescriptions()
         {
-            try
-            {
-                string query = $"SELECT * FROM Win32_PnPEntity WHERE Name LIKE '%({portname}%'";
+            var ports = new List<ComPortInfo>();
 
-                // Create a ManagementObjectSearcher with the query
-                using (ManagementObjectSearcher searcher = new ManagementObjectSearcher(query))
+            // Get all serial ports reported by Windows
+            string[] portNames = SerialPort.GetPortNames();
+
+            // Query Win32_PnPEntity for devices that expose COM ports
+            using (var searcher = new ManagementObjectSearcher(
+                "SELECT * FROM Win32_PnPEntity WHERE Name LIKE '%(COM%'"))
+            {
+                foreach (ManagementObject device in searcher.Get())
                 {
-                    // Iterate through the search results
-                    foreach (ManagementObject obj in searcher.Get())
+                    string name = device["Name"]?.ToString();
+                    if (string.IsNullOrEmpty(name))
+                        continue;
+
+                    // Extract COM port from "USB-Serial Device (COM7)"
+                    int start = name.LastIndexOf("(COM");
+                    if (start < 0)
+                        continue;
+
+                    int end = name.IndexOf(")", start);
+                    if (end < 0)
+                        continue;
+
+                    string port = name.Substring(start + 1, end - start - 1); // COM7
+
+                    if (portNames.Contains(port))
                     {
-                        // Check if the object has a "Name" property
-                        if (obj["Name"] != null)
+                        ports.Add(new ComPortInfo
                         {
-                            // Get the COM port description from the "Name" property
-                            return obj["Name"].ToString();
-                        }
+                            PortName = port,
+                            Description = name.Replace($"({port})", "").Trim()
+                        });
                     }
                 }
-                return "";
-            } catch (Exception ex)
-            {
-                return "";
             }
+
+            return ports;
+        }
+    }
+    public class ComPortInfo
+    {
+        public string PortName { get; set; }
+        public string Description { get; set; }
+
+        public override string ToString()
+        {
+            return $"{PortName} - {Description}";
         }
     }
 
@@ -499,15 +502,7 @@ namespace nppSerialMonitor.Modules
         {
             get
             {
-                string result = Regex.Replace(this._Message, @"[\r\n]+?", "", RegexOptions.IgnoreCase);
-                if (this.TransmissionType == SerialCommunicationManager.TransmissionTypes.Hex)
-                {
-                    return result;
-                }
-                else
-                {
-                    return result + Environment.NewLine;
-                }
+                return this._Message;
             }
             set
             {

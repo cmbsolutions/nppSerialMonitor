@@ -70,7 +70,7 @@ namespace Kbg.NppPluginNET
             MySettings = new Settings();
             MySettings.Load();
 
-            ToggleXmlViewerUI();
+            ToggleSerialMonitorUI();
         }
         /// <summary>
         /// Shows the "About" dialog window
@@ -83,12 +83,12 @@ namespace Kbg.NppPluginNET
 
         }
 
-        private static void ToggleXmlViewerUI()
+        private static void ToggleSerialMonitorUI()
         {
-            XmlViewerUIVisible();
+            SerialMonitorUIVisible();
         }
 
-        public static void XmlViewerUIVisible(bool? show = null)
+        public static void SerialMonitorUIVisible(bool? show = null)
         {
             if (serialMonitor == null || serialMonitor.IsDisposed)
             {
